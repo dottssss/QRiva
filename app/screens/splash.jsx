@@ -9,19 +9,19 @@ export default function Splash() {
   useEffect(() => {
     const timer = setTimeout(() => {
       router.replace('/(tabs)/dashboard');
-    }, 500); // 2 seconds splash screen
+    }, 100);
 
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <LinearGradient
-      colors={['#004e92', '#00bcd4']}
+      colors={['#ffffff', '#ffffff']}
       style={styles.container}
     >
       <View style={styles.logoContainer}>
         <Image
-          source={require('../../assets/images/adaptive-icon.png')}
+          source={require('../../assets/images/qrivalogo-splash.jpg')}
           style={styles.logo}
           resizeMode="contain"
         />

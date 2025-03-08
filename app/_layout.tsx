@@ -1,5 +1,6 @@
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { MenuProvider } from 'react-native-popup-menu';
@@ -37,12 +38,12 @@ import toastConfig from './../configs/toastConfig';
       'pt-regular' :require('./../assets/fonts/PTSans-Regular.ttf'),
       'pt-italic' :require('./../assets/fonts/PTSans-Italic.ttf'),
       'nunito' :require('./../assets/fonts/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf'),
-      
     })// Define your screens here, and add them to the stack.
 
     return (
       <PaperProvider>
       <MenuProvider>
+        <StatusBar style="light" translucent backgroundColor="transparent" />
         <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" />

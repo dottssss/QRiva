@@ -14,31 +14,111 @@ import { runOnJS } from 'react-native-reanimated';
 const WINDOW_HEIGHT = Dimensions.get('window').height;
 const WINDOW_WIDTH = Dimensions.get('window').width;
 const SCANNER_SIZE = WINDOW_WIDTH * 0.75;
+const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzE03P1P_H33PRYpUyfZwcQx52WtSr2BdHjOih5356raNTCksJTlzduwysmUDbFZ3er/exec";
 
-const TimeRecordModal = ({ visible, onClose, timeIn, status }) => (
-  <Modal
-    visible={visible}
-    transparent={true}
-    animationType="fade"
-    onRequestClose={onClose}
-  >
-    <View style={styles.modalContainer}>
-      <BlurView intensity={95} tint="dark" style={styles.modalContent}>
-        <MaterialCommunityIcons name="check-circle" size={50} color="#50C878" />
-        <Text style={styles.modalTitle}>Time In Recorded</Text>
-        <View style={styles.modalDetails}>
-          <Text style={styles.modalDetailLabel}>Status</Text>
-          <Text style={styles.modalDetailValue}>{status?.toUpperCase()}</Text>
-          <Text style={styles.modalDetailLabel}>Time</Text>
-          <Text style={styles.modalDetailValue}>{timeIn}</Text>
-        </View>
-        <TouchableOpacity style={styles.modalButton} onPress={onClose}>
-          <Text style={styles.modalButtonText}>Done</Text>
-        </TouchableOpacity>
-      </BlurView>
-    </View>
-  </Modal>
-);
+const getTypeColor = (type) => {
+  switch(type.toUpperCase()) {
+    case 'VIP': return '#FFD700';      // Gold
+    case 'GENAD': return '#4169E1';    // Royal Blue
+    case 'VISITORS': return '#50C878';  // Emerald
+    default: return '#50C878';
+  }
+};
+
+const getStatusColor = (statusCode) => {
+  switch(statusCode) {
+    case 'P': return '#50C878';  // Green for PAID
+    case 'UP': return '#FF6B6B'; // Red for UNPAID
+    case 'S': return '#FFA726';  // Orange for SPONSORED
+    case 'F': return '#20B2AA';  // Teal for FREE
+    default: return '#50C878';   // Default Green
+  }
+};
+
+const getStatusIcon = (type, statusCode) => {
+  if (type === 'VIP') return 'crown';
+  if (type === 'GENAD') return 'account-tie';
+  if (statusCode === 'UP') return 'alert-circle';
+  return 'account-check';
+};
+
+// Remove the complex message formatting and simplify to core info
+const getPaymentStatus = (statusCode, type) => {
+  if (type === 'VISITORS') return 'FREE';
+  switch(statusCode) {
+    case 'P': return 'PAID';
+    case 'UP': return 'UNPAID';
+    case 'S': return 'SPONSORED';
+    case 'F': return 'FREE';
+    default: return 'FREE';
+  }
+};
+
+// Update TimeRecordModal component
+const TimeRecordModal = ({ visible, onClose, timeIn, qrId }) => {
+  if (!qrId) return null;
+
+  const [type, statusCode] = qrId.split('-');
+  const baseColor = getTypeColor(type);
+  const statusColor = getStatusColor(statusCode);
+  const icon = getStatusIcon(type, statusCode);
+  const paymentStatus = getPaymentStatus(statusCode, type);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <BlurView intensity={95} tint="dark" style={styles.modalContent}>
+          <LinearGradient
+            colors={[`${baseColor}40`, `${statusColor}40`]}
+            style={styles.modalHeader}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <MaterialCommunityIcons 
+              name={icon}
+              size={50} 
+              color={baseColor}
+            />
+            <Text style={[styles.modalTitle, { color: baseColor }]}>
+              {type}
+            </Text>
+            <Text style={styles.qrIdText}>{qrId}</Text>
+          </LinearGradient>
+
+          <View style={styles.modalDetails}>
+            <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20`, borderColor: statusColor }]}>
+              <MaterialCommunityIcons 
+                name={statusCode === 'UP' ? 'alert-circle' : 'check-circle'}
+                size={20} 
+                color={statusColor}
+              />
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {paymentStatus}
+              </Text>
+            </View>
+
+            <View style={styles.timeContainer}>
+              <Text style={styles.timeLabel}>Time In</Text>
+              <Text style={styles.timeValue}>{timeIn}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: baseColor }]} 
+            onPress={onClose}
+          >
+            <Text style={styles.modalButtonText}>Confirm</Text>
+          </TouchableOpacity>
+        </BlurView>
+      </View>
+    </Modal>
+  );
+};
 
 // Add new SecurityErrorModal component near other modal components
 const SecurityErrorModal = ({ visible, onClose, timeIn, securityMessage }) => (
@@ -68,6 +148,176 @@ const SecurityErrorModal = ({ visible, onClose, timeIn, securityMessage }) => (
   </Modal>
 );
 
+// Update UnpaidModal component with admin-focused messaging
+const UnpaidModal = ({ visible, onClose, qrId }) => {
+  const [type] = qrId ? qrId.split('-') : [''];
+  const baseColor = '#FF6B6B';  // Red color for unpaid status
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <BlurView intensity={95} tint="dark" style={styles.modalContent}>
+          <MaterialCommunityIcons 
+            name="cash-remove" 
+            size={50} 
+            color={baseColor}
+          />
+          <Text style={[styles.modalTitle, { color: baseColor }]}>
+            Unpaid Registration
+          </Text>
+          <View style={styles.modalDetails}>
+            <View style={styles.unpaidDetailsBox}>
+              <Text style={styles.unpaidIdLabel}>QR Code ID:</Text>
+              <Text style={styles.unpaidIdValue}>{qrId}</Text>
+              <View style={styles.unpaidTypeBadge}>
+                <Text style={styles.unpaidTypeText}>{type}</Text>
+              </View>
+            </View>
+            <Text style={[styles.unpaidMessage, { borderColor: `${baseColor}40` }]}>
+              This {type} registration is unpaid.{'\n'}
+              Direct the attendee to the payment counter.
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: baseColor }]} 
+            onPress={onClose}
+          >
+            <Text style={styles.modalButtonText}>Acknowledge</Text>
+          </TouchableOpacity>
+        </BlurView>
+      </View>
+    </Modal>
+  );
+};
+
+// Replace the RegularModal component with this updated version
+const RegularModal = ({ visible, onClose, qrId, timeIn }) => {
+  if (!qrId) return null;
+
+  const [_, statusCode, id] = qrId ? qrId.split('-') : ['', '', ''];
+  const baseColor = '#4169E1';  // Royal Blue for Regular
+  const statusColor = getStatusColor(statusCode);
+  const paymentStatus = getPaymentStatus(statusCode, 'REGULAR');
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <BlurView intensity={95} tint="dark" style={styles.modalContent}>
+          <LinearGradient
+            colors={[`${baseColor}40`, `${statusColor}40`]}
+            style={styles.modalHeader}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <MaterialCommunityIcons 
+              name="account-group" 
+              size={50} 
+              color={baseColor}
+            />
+            <Text style={[styles.modalTitle, { color: baseColor }]}>
+              REGULAR
+            </Text>
+            <Text style={styles.qrIdText}>{qrId}</Text>
+          </LinearGradient>
+
+          <View style={styles.modalDetails}>
+            <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20`, borderColor: statusColor }]}>
+              <MaterialCommunityIcons 
+                name={statusCode === 'UP' ? 'alert-circle' : 'check-circle'}
+                size={20} 
+                color={statusColor}
+              />
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {paymentStatus}
+              </Text>
+            </View>
+
+            <View style={styles.timeContainer}>
+              <Text style={styles.timeLabel}>Time In</Text>
+              <Text style={styles.timeValue}>{timeIn}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: baseColor }]} 
+            onPress={onClose}
+          >
+            <Text style={styles.modalButtonText}>Confirm</Text>
+          </TouchableOpacity>
+        </BlurView>
+      </View>
+    </Modal>
+  );
+};
+
+// Add new URLModal component after other modal components
+const URLModal = ({ visible, onClose, url }) => {
+  const handleOpenURL = async () => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Error", "Cannot open this URL");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to open URL");
+    } finally {
+      onClose();
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <BlurView intensity={95} tint="dark" style={styles.modalContent}>
+          <MaterialCommunityIcons 
+            name="link" 
+            size={50} 
+            color="#4169E1"
+          />
+          <Text style={[styles.modalTitle, { color: '#4169E1' }]}>
+            Website Detected
+          </Text>
+          <View style={styles.modalDetails}>
+            <Text style={styles.urlText}>{url}</Text>
+          </View>
+          <View style={styles.urlButtonContainer}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={onClose}
+            >
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.modalButton, { backgroundColor: '#4169E1' }]} 
+              onPress={handleOpenURL}
+            >
+              <Text style={styles.modalButtonText}>Open Website</Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </View>
+    </Modal>
+  );
+};
+
+// Add state for URL modal
 export default function QRScanner() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -114,37 +364,52 @@ export default function QRScanner() {
   const [recordedStatus, setRecordedStatus] = useState(null);
   const [showSecurityError, setShowSecurityError] = useState(false);
   const [securityErrorDetails, setSecurityErrorDetails] = useState(null);
+  const [showUnpaidModal, setShowUnpaidModal] = useState(false);
+  const [showRegularModal, setShowRegularModal] = useState(false);
+  const [showURLModal, setShowURLModal] = useState(false);
+  const [detectedURL, setDetectedURL] = useState('');
 
   const handleBarCodeScanned = useCallback(async ({ data }) => {
     setScanned(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      let parsedData;
-      try {
-        parsedData = JSON.parse(data);
-        console.log('Parsed QR Data:', parsedData);
+      // Check if it's a URL first
+      if (data.startsWith('http://') || data.startsWith('https://') || data.startsWith('www.')) {
+        const url = data.startsWith('www.') ? `https://${data}` : data;
+        setDetectedURL(url);
+        setShowURLModal(true);
+        return;
+      }
 
-        if (!parsedData.type || parsedData.type !== 'uuid') {
-          throw new Error('Not a UUID QR code');
+      const qrMatch = data.match(/^(VIP|GENAD|VISITORS|REGULAR)-([A-Z]+-)?(\d+)$/);
+      
+      if (qrMatch) {
+        const [_, type, statusCodeWithHyphen, id] = qrMatch;
+        const statusCode = type === 'VISITORS' ? 'F' : statusCodeWithHyphen?.replace('-', '') || 'P';
+
+        // Check if status is UP (unpaid) and show UnpaidModal
+        if (statusCode === 'UP') {
+          setRecordedStatus(data); // Store QR ID
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          setShowUnpaidModal(true);
+          return;
         }
 
-        const googleAppsScriptURL = "https://script.google.com/macros/s/AKfycbx1_b7r4eBH5-BQzg-cizb4-iCasjJQ-b8QD2-4XuWhNzNK8Rt-J0lJm7QZWQj70WyzHQ/exec";
-
-        console.log('Sending request with UUID data:', {
-          uuid: data // Send the entire QR data as uuid
-        });
-
+        console.log('Processing ID:', type, statusCode, id);
+        
         const response = await axios({
           method: 'post',
-          url: googleAppsScriptURL,
-          data: { uuid: data }, // Send raw QR data
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          url: GOOGLE_APPS_SCRIPT_URL,
+          data: { 
+            uuid: JSON.stringify({
+              type: 'uuid',
+              data: data,
+              status: statusCode
+            })
+          },
+          headers: { 'Content-Type': 'application/json' }
         });
-
-        console.log('Response from server:', response.data);
 
         if (!response.data.success) {
           if (response.data.alreadyScanned) {
@@ -158,85 +423,27 @@ export default function QRScanner() {
           throw new Error(response.data.message || 'Failed to process Time In');
         }
 
-        const timeIn = response.data.timeIn;
-        const status = parsedData.status;
-        
-        setRecordedTime(timeIn);
-        setRecordedStatus(status);
-        setShowRecordModal(true);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setRecordedTime(response.data.timeIn);
+        setRecordedStatus(data); // Pass full QR ID for modal display
 
-      } catch (parseError) {
-        // Handle URL QR codes
-        if (data.startsWith('http://') || data.startsWith('https://') || data.startsWith('www.')) {
-          Alert.alert(
-            "URL Detected",
-            "Would you like to open this link?",
-            [
-              {
-                text: "Cancel",
-                onPress: () => setScanned(false),
-                style: "cancel"
-              },
-              {
-                text: "Open",
-                onPress: async () => {
-                  try {
-                    const url = data.startsWith('www.') ? `https://${data}` : data;
-                    const supported = await Linking.canOpenURL(url);
-                    
-                    if (supported) {
-                      await Linking.openURL(url);
-                    } else {
-                      Alert.alert("Error", "Cannot open this URL");
-                    }
-                  } catch (error) {
-                    Alert.alert("Error", "Failed to open URL");
-                  } finally {
-                    setScanned(false);
-                  }
-                }
-              }
-            ]
-          );
-          return;
+        if (type === 'REGULAR') {
+          setShowRegularModal(true);
+        } else {
+          setShowRecordModal(true);
         }
 
-        // Handle plain text QR codes
-        Alert.alert(
-          "Text Content",
-          data,
-          [
-            { 
-              text: "Copy",
-              onPress: async () => {
-                await Clipboard.setStringAsync(data);
-                Toast.show({
-                  type: 'success',
-                  text1: 'Copied to clipboard',
-                  position: 'bottom'
-                });
-                setScanned(false);
-              }
-            },
-            {
-              text: "Close",
-              onPress: () => setScanned(false),
-              style: "cancel"
-            }
-          ]
-        );
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return;
       }
+
+      // Handle other QR code types (text/URL)
+      // ...existing code for other QR types...
     } catch (error) {
       console.log('\n=== Error Details ===');
-      console.error('Error Type:', error.name);
-      console.error('Error Message:', error?.response?.data?.message || error.message);
-      console.error('Error Stack:', error.stack);
-      console.error('Full Error:', error);
-      
+      console.error('Error:', error);
       Alert.alert(
         "Error",
-        error?.response?.data?.message || error.message || "Failed to process Time In",
+        error?.response?.data?.message || error.message,
         [{ text: "OK", onPress: () => setScanned(false) }]
       );
     }
@@ -307,7 +514,7 @@ export default function QRScanner() {
             </View>
 
             <View style={styles.bottomContainer}>
-              <BlurView intensity={25} tint="dark" style={styles.bottomOverlay}>
+              <BlurView intensity={0} tint="dark" style={styles.bottomOverlay}>
                 <View style={[styles.statusContainer, scanned && styles.processingContainer]}>
                   <View style={[styles.statusDot, scanned && styles.statusDotProcessing]} />
                   <Text style={styles.statusText}>
@@ -339,7 +546,7 @@ export default function QRScanner() {
             setScanned(false);
           }}
           timeIn={recordedTime}
-          status={recordedStatus}
+          qrId={recordedStatus} // Pass the full QR ID
         />
 
         <SecurityErrorModal
@@ -350,6 +557,34 @@ export default function QRScanner() {
           }}
           timeIn={securityErrorDetails?.timeIn}
           securityMessage={securityErrorDetails?.securityMessage}
+        />
+
+        <UnpaidModal
+          visible={showUnpaidModal}
+          onClose={() => {
+            setShowUnpaidModal(false);
+            setScanned(false);
+          }}
+          qrId={recordedStatus}
+        />
+
+        <RegularModal
+          visible={showRegularModal}
+          onClose={() => {
+            setShowRegularModal(false);
+            setScanned(false);
+          }}
+          qrId={recordedStatus}
+          timeIn={recordedTime}
+        />
+
+        <URLModal
+          visible={showURLModal}
+          onClose={() => {
+            setShowURLModal(false);
+            setScanned(false);
+          }}
+          url={detectedURL}
         />
       </View>
     </GestureDetector>
@@ -610,5 +845,150 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     padding: 15,
     borderRadius: 10,
-  }
+  },
+  modalHeader: {
+    width: '100%',
+    padding: 20,
+    alignItems: 'center',
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  timeContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  timeLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 5,
+  },
+  timeValue: {
+    fontSize: 24,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 15,
+    gap: 6,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  statusMessage: {
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
+    lineHeight: 24,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  qrIdText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  unpaidMessage: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+    lineHeight: 24,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 15,
+    backgroundColor: 'rgba(255,107,107,0.1)',
+  },
+  unpaidDetailsBox: {
+    backgroundColor: 'rgba(255,107,107,0.1)',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,107,0.2)',
+  },
+  unpaidIdLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 4,
+  },
+  unpaidIdValue: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  unpaidTypeBadge: {
+    backgroundColor: 'rgba(255,107,107,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  unpaidTypeText: {
+    color: '#FF6B6B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  regularDetailsBox: {
+    backgroundColor: 'rgba(65,105,225,0.1)',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(65,105,225,0.2)',
+  },
+  regularIdLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 4,
+  },
+  regularIdValue: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  regularStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  regularStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  urlText: {
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
+    padding: 15,
+    backgroundColor: 'rgba(65,105,225,0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(65,105,225,0.2)',
+  },
+  urlButtonContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
 });

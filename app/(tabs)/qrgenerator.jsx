@@ -9,9 +9,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -22,9 +20,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import QRCode from 'react-native-qrcode-svg';
 import { runOnJS } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
+import UUIDConfigModal from './../../components/UUIDConfigModal';
 
-// Update the ForwardedQRCode component to include status display
-const ForwardedQRCode = React.forwardRef(({ status, ...props }, ref) => (
+// Add this custom QRCode component with forwardRef
+const ForwardedQRCode = React.forwardRef((props, ref) => (
   <View style={[styles.qrWrapper, props.wrapperStyle]}>
     <LinearGradient
       colors={['rgba(80,200,120,0.1)', 'rgba(65,88,208,0.1)']}
@@ -41,146 +40,23 @@ const ForwardedQRCode = React.forwardRef(({ status, ...props }, ref) => (
       <QRCode
         {...props}
         getRef={ref}
+        //logo={require('../../assets/images/Logo1.png')}
         logoSize={30}
         logoBackgroundColor="white"
         logoBorderRadius={8}
         logoMargin={4}
       />
-      
-      {/* Status Overlay - Updated for better QR compatibility */}
-      {status && (
-        <View style={styles.qrStatusOverlay}>
-          <LinearGradient
-            colors={
-              status === 'vip' ? ['rgba(255,215,0,0.8)', 'rgba(255,165,0,0.8)'] :
-              status === 'staff' ? ['rgba(65,88,208,0.8)', 'rgba(80,200,120,0.8)'] :
-              ['rgba(80,200,120,0.8)', 'rgba(65,88,208,0.8)']
-            }
-            style={styles.qrStatusBadge}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialCommunityIcons 
-              name={
-                status === 'vip' ? 'crown' :
-                status === 'staff' ? 'badge-account' :
-                'account'
-              }
-              size={12} // Reduced size
-              color="#fff"
-            />
-            <Text style={styles.qrStatusText}>
-              {status?.toUpperCase()}
-            </Text>
-          </LinearGradient>
-        </View>
-      )}
     </LinearGradient>
   </View>
 ));
 
-// Create a separate modal component with its own state
-const UUIDModalContent = React.memo(({ 
-  initialUUID,
-  initialStatus, 
-  onSubmit 
-}) => {
-  // Local state for the modal
-  const [localUUID, setLocalUUID] = useState(initialUUID);
-  const [localStatus, setLocalStatus] = useState(initialStatus);
-
-  const handleSubmit = () => {
-    onSubmit({ uuid: localUUID, status: localStatus });
-  };
-
-  console.log('Modal Content Rendered');
-  
-  return (
-    <LinearGradient
-      colors={['rgba(80,200,120,0.1)', 'rgba(0,0,0,0.2)']}
-      style={styles.uuidModalGradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
-      <Text style={styles.uuidModalTitle}>Configuration</Text>
-      
-      <View style={styles.uuidInputContainer}>
-        <MaterialCommunityIcons 
-          name="identifier" 
-          size={24} 
-          color="#fff" 
-          style={styles.inputIcon} 
-        />
-        <TextInput
-          style={styles.uuidInput}
-          placeholder="Enter ID Number"
-          placeholderTextColor="#rgba(255,255,255,0.6)"
-          value={localUUID}
-          onChangeText={text => setLocalUUID(text.replace(/[^0-9]/g, ''))}
-          keyboardType="numeric"
-          autoCapitalize="none"
-          multiline={false}
-          maxLength={36}
-          autoFocus={true}
-        />
-      </View>
-
-      <Text style={styles.statusLabel}>Select Status</Text>
-      <View style={styles.statusGrid}>
-        {['regular', 'vip', 'staff'].map((status) => (
-          <TouchableOpacity 
-            key={status}
-            style={[
-              styles.statusGridButton, 
-              localStatus === status && styles.selectedStatus
-            ]}
-            onPress={() => setLocalStatus(status)}
-          >
-            <MaterialCommunityIcons 
-              name={
-                status === 'vip' ? 'crown' : 
-                status === 'staff' ? 'badge-account' : 
-                'account'
-              } 
-              size={24} 
-              color="#fff" 
-            />
-            <Text style={styles.statusGridText}>
-              {status.toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <TouchableOpacity
-        style={styles.applyButton}
-        onPress={handleSubmit}
-      >
-        <LinearGradient
-          colors={['#50C878', '#4158D0']}
-          style={styles.applyGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          <Text style={styles.applyButtonText}>Apply</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </LinearGradient>
-  );
-});
-
 export default function QRGenerator() {
-  console.log('Component Rendered'); // Add main render log
-
   const [qrData, setQrData] = useState('');
   const [inputType, setInputType] = useState('text'); // 'text', 'url', 'uuid'
-  const [uuidStatus, setUuidStatus] = useState('regular'); // 'regular', 'vip', 'staff'
   const [showQR, setShowQR] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showUUIDModal, setShowUUIDModal] = useState(false);
-  const [tempUUID, setTempUUID] = useState('');
-  const [tempStatus, setTempStatus] = useState('regular'); // Add temporary status state
   const qrRef = useRef();
 
   const navigateBack = useCallback(() => {
@@ -200,7 +76,6 @@ export default function QRGenerator() {
       return JSON.stringify({
         type: 'uuid',
         data: qrData,
-        status: uuidStatus,
         created: new Date().toISOString()
       });
     }
@@ -208,6 +83,7 @@ export default function QRGenerator() {
   };
 
   const generateQRCode = () => {
+    Keyboard.dismiss();
     if (qrData.trim().length > 0) {
       setShowQR(true);
     }
@@ -266,48 +142,6 @@ export default function QRGenerator() {
     }
   };
 
-  // Add this function to handle modal submission
-  const handleModalSubmit = useCallback(({ uuid, status }) => {
-    console.log('Modal Submit:', { uuid, status });
-    Keyboard.dismiss();
-    setQrData(uuid);
-    setUuidStatus(status);
-    setShowQR(false);
-    setShowUUIDModal(false);
-  }, []);
-
-  // Add UUID Modal component
-  const UUIDModal = useCallback(() => (
-    <Modal
-      visible={showUUIDModal}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={() => {
-        Keyboard.dismiss();
-        setShowUUIDModal(false);
-      }}
-    >
-      <View style={styles.uuidModalContainer}>
-        <BlurView intensity={95} tint="dark" style={styles.uuidModalContent}>
-          <UUIDModalContent
-            initialUUID={qrData}
-            initialStatus={uuidStatus}
-            onSubmit={handleModalSubmit}
-          />
-        </BlurView>
-      </View>
-    </Modal>
-  ), [showUUIDModal, qrData, uuidStatus, handleModalSubmit]);
-
-  // Update modal show handler to initialize temp UUID
-  const handleShowUUIDModal = useCallback(() => {
-    console.log('Opening Modal with:', { currentQR: qrData, currentStatus: uuidStatus });
-    setTempUUID(qrData);
-    setTempStatus(uuidStatus); // Initialize temp status
-    setShowUUIDModal(true);
-  }, [qrData, uuidStatus]);
-
-  // Modify the renderInputSection to show a button for UUID config
   const renderInputSection = () => {
     return (
       <View style={styles.inputSection}>
@@ -316,7 +150,12 @@ export default function QRGenerator() {
             <TouchableOpacity 
               key={type}
               style={[styles.typeButton, inputType === type && styles.selectedType]}
-              onPress={() => setInputType(type)}
+              onPress={() => {
+                setInputType(type);
+                if (type === 'uuid') {
+                  setShowUUIDModal(true);
+                }
+              }}
             >
               <MaterialCommunityIcons 
                 name={
@@ -334,26 +173,19 @@ export default function QRGenerator() {
 
         {inputType === 'uuid' ? (
           <TouchableOpacity 
-            style={styles.uuidButton}
-            onPress={handleShowUUIDModal}
+            style={styles.uuidDisplay}
+            onPress={() => setShowUUIDModal(true)}
           >
-            <View style={styles.uuidButtonContent}>
-              <MaterialCommunityIcons 
-                name="identifier" 
-                size={24} 
-                color="#fff"
-              />
-              <View style={styles.uuidInfo}>
-                <Text style={styles.uuidLabel}>Configuration</Text>
-                <Text style={styles.uuidDetails}>
-                  {qrData ? qrData : 'No ID set'} • {uuidStatus.toUpperCase()}
-                </Text>
-              </View>
-              <MaterialCommunityIcons 
-                name="chevron-right" 
-                size={24} 
-                color="#fff"
-              />
+            <MaterialCommunityIcons 
+              name="identifier" 
+              size={24} 
+              color="#fff" 
+              style={styles.inputIcon} 
+            />
+            <View style={styles.uuidInfo}>
+              <Text style={styles.uuidText}>
+                {qrData || 'Click to enter ID'}
+              </Text>
             </View>
           </TouchableOpacity>
         ) : (
@@ -392,13 +224,9 @@ export default function QRGenerator() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <View style={styles.content}>
-            <BlurView intensity={10} tint="dark" style={styles.card}>
-              <Text style={styles.title}>Create QR Code</Text>
+        <View style={styles.content}>
+          <BlurView intensity={10} tint="dark" style={styles.card}>
+            <Text style={styles.title}>Create QR Code</Text>
               
               {renderInputSection()}
 
@@ -416,7 +244,6 @@ export default function QRGenerator() {
                     ref={qrRef}
                     quietZone={16}
                     wrapperStyle={styles.previewQR}
-                    status={inputType === 'uuid' ? uuidStatus : null}
                   />
                 ) : (
                   <Text style={styles.previewText}>
@@ -446,9 +273,21 @@ export default function QRGenerator() {
               </TouchableOpacity>
               
               <Text style={styles.hint}>Swipe left to return to scanner</Text>
-            </BlurView>
+          </BlurView>
+        </View>
+
+        <BlurView intensity={25} tint="dark" style={styles.bottomIndicator}>
+          <View style={styles.indicatorContainer}>
+            <View style={styles.pageIndicator}>
+              <View style={styles.dot} />
+              <Text style={styles.indicatorText}>Scanner</Text>
+            </View>
+            <View style={styles.pageIndicator}>
+              <View style={[styles.dot, styles.activeDot]} />
+              <Text style={[styles.indicatorText, styles.activeText]}>QR Generator</Text>
+            </View>
           </View>
-        </KeyboardAvoidingView>
+        </BlurView>
 
         <Modal
           visible={showModal}
@@ -459,13 +298,12 @@ export default function QRGenerator() {
           <View style={styles.modalContainer}>
             <BlurView intensity={95} tint="dark" style={styles.modalContent}>
               <ForwardedQRCode
-                value={generateQRCodeData()}
+                value={qrData}
                 size={300}
                 color="#fff"
                 backgroundColor="transparent"
                 quietZone={20}
                 wrapperStyle={styles.modalQR}
-                status={inputType === 'uuid' ? uuidStatus : null}
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity 
@@ -489,7 +327,15 @@ export default function QRGenerator() {
             </BlurView>
           </View>
         </Modal>
-        <UUIDModal />
+        <UUIDConfigModal
+          visible={showUUIDModal}
+          onClose={() => setShowUUIDModal(false)}
+          uuidValue={qrData}
+          onUUIDChange={(text) => {
+            setQrData(text);
+            setShowQR(false);
+          }}
+        />
         <Toast />
       </LinearGradient>
     </GestureDetector>
@@ -499,10 +345,6 @@ export default function QRGenerator() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-    width: '100%',
   },
   content: {
     flex: 1,
@@ -536,6 +378,7 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginHorizontal: 10,
+    marginTop: 12, // Center icon with first line of text
   },
   input: {
     flex: 1,
@@ -728,129 +571,63 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  uuidButton: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 12,
-    marginTop: 10,
-  },
-  uuidButtonContent: {
-    flexDirection: 'row',
+  bottomIndicator: {
+    width: '100%',
+    paddingVertical: 15,
     alignItems: 'center',
-    padding: 15,
-    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
-  uuidInfo: {
-    flex: 1,
+  indicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    marginVertical: 5,
   },
-  uuidLabel: {
+  pageIndicator: {
+    alignItems: 'center',
+    gap: 5,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  activeDot: {
+    backgroundColor: '#50C878',
+    shadowColor: '#50C878',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  indicatorText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  activeText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
   },
-  uuidDetails: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  uuidModalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
-  uuidModalContent: {
-    width: '90%',
-    maxWidth: 340,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  uuidModalGradient: {
-    padding: 20,
-  },
-  uuidModalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  uuidInputContainer: {
+  uuidDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 12,
     padding: 12,
-    marginBottom: 20,
+    marginTop: 8,
   },
-  uuidInput: {
+  uuidInfo: {
     flex: 1,
+    marginLeft: 10,
+  },
+  uuidText: {
     color: '#fff',
     fontSize: 16,
-    paddingLeft: 10,
   },
-  statusLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  statusGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  statusGridButton: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusGridText: {
-    color: '#fff',
+  uuidStatus: {
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
-    fontWeight: '600',
+    marginTop: 4,
   },
-  applyButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 10,
-  },
-  applyGradient: {
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  qrStatusOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    pointerEvents: 'none', // Makes sure it doesn't interfere with touch events
-  },
-  qrStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    gap: 3,
-    backgroundColor: 'rgba(0,0,0,0.3)', // Add semi-transparent background
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  qrStatusText: {
-    color: '#fff',
-    fontSize: 10, // Smaller font size
-    fontWeight: 'bold',
-    textAlign: 'center',
-  }
 });
